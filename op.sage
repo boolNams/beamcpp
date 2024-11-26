@@ -53,3 +53,21 @@ for i in range(0,4):
 
 #ВЫВОД МАТРИЦЫ
 print(A, file = info)
+
+
+#МАССИВЫ ИНТЕГРАЛОВ ДЛЯ ПРАВОЙ ЧАСТИ
+B = np.zeros(4)
+By = np.zeros(4)
+
+#ВЫЧИСЛЕНИЕ ИНТЕГРАЛОВ ПРАВОЙ ЧАСТИ
+for i in range(0,4):
+	B[i] = integral(F[i],(y,0,1))
+
+for i in range(0,4):
+	By[i] = integral(y*F[i],(y,0,1))
+
+#ВЫВОД ВЕКТОРОВ
+print("ИНТЕГРАЛ БАЗИСНЫХ ФУНКЦИЙ::", file = info)
+print(B, file = info)
+print("МОМЕНТНЫЙ ИНТЕГРАЛ БАЗИСНЫХ ФУНКЦИЙ", file = info)
+print(By, file = info)

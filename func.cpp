@@ -2,6 +2,7 @@
 //ВСЕ ВЫЧИСЛЕНИЯ В LOG-ФАЙЛЕ beamlog.txt
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include "math.h"
 #include "header.h"
@@ -19,12 +20,22 @@ double L2(double y){return pow(y,3) - pow(y,2);}
 //МАССИВ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
 double (*BASIS[4])(double) = {N1, L1, N2, L2};
 
+//ПЕРВЫЕ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double dN1(double y){return 6.0*pow(y,2) - 6.0*y;}
+double dL1(double y){return 3.0*pow(y,2) - 4.0*y + 1.0;}
+double dN2(double y){return -6.0*pow(y,2) + 6.0*y;}
+double dL2(double y){return 3.0*pow(y,2) - 2.0*y;}
+
+//МАССИВ ПЕРВЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double (*dBASIS[4])(double) = {dN1, dL1, dN2, dL2};
+
 Solution::Solution(){}
 
 Solution::Solution(int N)
 {
 	//ОТКРЫТИЕ LOG ФАЙЛА
     logfile.open("beamlog.txt");
+    logfile.precision(3);
 
 	//МИНИМАЛЬНОЕ ЧИСЛО УЗЛОВ 7 (2 УЗЛА РАСПРЕДЕЛЕННОЙ НАГРУЗКИ, 4 ОПОРЫ, 1 УЗЕЛ НА ЛЕВОМ ТОРЦЕ)
     if(N < 7)
@@ -38,8 +49,10 @@ Solution::Solution(int N)
     this->N = N;
     this->M = N - 1;
     this->N2 = 2*N;
+
     this->x = new double[N];
     this->A = new double[N2*N2];
+    this->B = new double[N2];
 
     //ЗАПОЛНЕНИЕ МАТРИЦЫ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ
     fill_c();
@@ -59,6 +72,12 @@ Solution::Solution(int N)
     //ВЫВОД ДАННЫХ О ПЕРВОНАЧАЛЬНОЙ МАТРИЦЕ ЖЕСТКОСТИ
     info_A();
 
+    //ЗАПОЛНЕНИЕ ПЕРВОНАЧАЛЬНОГО ВЕКТОРА ПРАВОЙ ЧАСТИ B
+    fill_B();
+
+    //ВЫВОД ДАННЫХ О ПЕРВОНАЧАЛЬНОМ ВЕКТОРЕ ПРАВОЙ ЧАСТИ B
+    info_B();
+
     //ЗАКРЫТИЕ LOG ФАЙЛА
     logfile.close();
 }
@@ -68,6 +87,7 @@ Solution::~Solution()
 	//ЧИСТКА ПАМЯТИ
 	if(x != nullptr) delete x;
 	if(A != nullptr) delete A;
+	if(B != nullptr) delete B;
 }
 
 void Solution::info_base()
@@ -82,6 +102,10 @@ void Solution::info_mesh()
 {
 	logfile << "МИНИМАЛЬНЫЙ РАЗМЕР ЭЛЕМЕНТА В СЕТКЕ | min_h = " << min_h() << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С ПРУЖИНОЙ | kk = " << kk + 1 << endl;
+	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С МОМЕНТОМ | km = " << km + 1 << endl;
+	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С СИЛОЙ | kp = " << kp + 1 << endl;
+	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ НАЧИНАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq1 = " << kq1 + 1 << endl;
+	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ ЗАКАНЧИВАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq2 = " << kq2 + 1 << endl;
 
 	logfile << "КООРДИНАТЫ ТОЧЕК В СЕТКЕ::" << endl;
 	for(int i = 0; i < N; ++i)
@@ -95,9 +119,19 @@ void Solution::info_A()
 	logfile << "ПЕРВОНАЧАЛЬНАЯ МАТРИЦА ЖЕСТКОСТИ A::" << endl;
 	for(int i = 0; i < N2; ++i)
 	{
-		for(int j = 0; j < N2; ++j) logfile << A[i*N2 + j] << " ";
+		for(int j = 0; j < N2; ++j)
+		{
+			logfile << setw(10) << A[i*N2 + j] << " ";
+		}
+
 		logfile << endl; 
 	}
+}
+
+void Solution::info_B()
+{
+	logfile << "ПЕРВОНАЧАЛЬНЫЙ ВЕКТОР ПРАВОЙ ЧАСТИ B::" << endl;
+	for(int i = 0; i < N2; ++i) logfile << B[i] << endl;
 }
 
 void Solution::info_a(int k)
@@ -105,10 +139,20 @@ void Solution::info_a(int k)
 	logfile << "МАТРИЦА ЖЕСТКОСТИ " << k << "-ГО КОНЕЧНОГО ЭЛЕМЕНТА::" << endl;
 	for(int i = 0; i < 4; ++i)
 	{
-		for(int j = 0; j < 4; ++j) logfile << a[i*4+j] << " ";
+		for(int j = 0; j < 4; ++j)
+		{
+			logfile << setw(10) << a[i*4 + j] << " ";
+		}
+
 		logfile << endl;
 	}
 
+}
+
+void Solution::info_b(int k)
+{
+	logfile << "ВЕКТОР ПРАВОЙ ЧАСТИ " << k << "-ГО КОНЕЧНОГО ЭЛЕМЕНТА::" << endl;
+	for(int i = 0; i < 4; ++i) logfile << b[i] << endl;
 }
 
 double Solution::min_h()
@@ -165,10 +209,20 @@ void Solution::create_mesh()
         throw -1;
    	}
 
-   	//ПРИСВАИВАНИЕ ЗНАЧЕНИЯ kk ИНДЕКСУ КОНЕЧНОГО ЭЛЕМЕНТА С ПРУЖИНОЙ
+   	//ПРИСВАИВАНИЕ ЗНАЧЕНИЯ kk km kp ИНДЕКСАМ КОНЕЧНЫХ ЭЛЕМЕНТОВ С ПРУЖИНОЙ МОМЕНТОМ И СИЛОЙ
    	for(int k = 0; k < M; ++k)
    	{
-   		if(xk < x[k+1] and xk > x[k]) kk = k;
+   		//ЕСЛИ ОДНО ИЗ УСЛОВИЙ ЛЕЖИТ ПРЯМО НА УЗЛЕ ТО СЧИТАЕМ ЧТО УСЛОВИЕ ПРЕНАДЛЕЖИТ КОНЕЧНОМУ ЭЛЕМЕНТУ ЛЕВЫЙ УЗЕЛ КОТОРОГО ЯВЛЯЕТСЯ ДАННЫМ
+   		if((xk < x[k+1] and xk > x[k]) or abs(xk - x[k]) < 1.0e-16) kk = k;
+   		if((xM < x[k+1] and xM > x[k]) or abs(xM - x[k]) < 1.0e-16) km = k;
+   		if((xP < x[k+1] and xP > x[k]) or abs(xP - x[k]) < 1.0e-16) kp = k;
+   	}
+
+   	//ПРИСВАИВАНИЕ ЗНАЧЕНИЯ kq1 kq2 ИНДЕКСАМ КОНЕЧНЫХ ЭЛЕМЕНТОВ ОПРЕДЕЛЯЮЩИХ НАЧАЛО И КОНЕЦ РАСПРЕДЕЛЕННОЙ НАГРУЗКИ
+   	for(int k = 0; k < M; ++k)
+   	{
+   		if(abs(xq1 - x[k]) < 1.0e-16) kq1 = k;
+   		if(abs(xq2 - x[k]) < 1.0e-16) kq2 = k;
    	}
 }
 
@@ -198,7 +252,7 @@ void Solution::fill_A()
 		for(int i = 0; i < 4; ++i)
 		{
 			//ФУНКЦИЯ op ПО ИНДЕКСАМ ФУНКЦИЙ ВЫЧИСЛИТ ИХ БИЛИНЕЙНЫЙ ОПЕРАТОР НА (k+1)-ОМ ЭЛЕМЕНТЕ
-			for(int j = 0; j < i + 1; ++j) a[i*4+j] = op(k, i, j);
+			for(int j = 0; j < i + 1; ++j) a[i*4+j] = opa(k, i, j);
 
 			//ЗАПОЛНЕНИЕ ВЕРХНЕЙ ЧАСТИ МАТРИЦЫ СИММЕТРИЧНО
 			for(int j = 0; j < i; ++j) a[j*4+i] = a[i*4+j];
@@ -219,6 +273,62 @@ void Solution::fill_A()
 
 }
 
+void Solution::fill_B()
+{
+	//ВЫЧИСЛЕНИЕ ПЕРВОНАЧАЛЬНОГО ВЕКТОРА B ПРАВОЙ ЧАСТИ
+	set_zeros_B();
+
+	//ЛОГИЧЕСКАЯ ПЕРЕМЕННАЯ ДЛЯ ОТСЛЕЖИВАНИЯ КОНЕЧНЫХ ЭЛЕМЕНТОВ С РАСПРЕДЕЛЕННОЙ НАГРУЗКОЙ
+	//ИЗНАЧАЛЬНО СЧИТАЕМ ЧТО НАГРУЗКИ НЕТ
+	bool is_q = false;
+
+	//ЦИКЛ ПО КОНЕЧНЫМ ЭЛЕМЕНТАМ
+	for(int k = 0; k < M; ++k)
+	{
+		//ЗАНУЛЕНИЕ ВЕКТОРА КОНЕЧНОГО ЭЛЕМЕНТА
+		set_zeros_b();
+
+		//НАЧАЛАСЬ РАСПРЕДЕЛЕННАЯ НАГРУЗКА
+		if(k == kq1) is_q = true;
+
+		//ЗАКОНЧИЛАСЬ РАСПРЕДЕЛЕННАЯ НАГРУЗКА
+		if(k == kq2) is_q = false;
+
+		//ВЫЧИСЛЕНИЕ ВЕКТОРА КОНЕЧНОГО ЭЛЕМЕНТА
+
+		//СЧИТАЕМ ИНТЕГРАЛ ЕСЛИ ЕСТЬ РАСПРЕДЕЛЕННАЯ НАГРУЗКА
+		if(is_q)
+		{
+			for(int i = 0; i < 4; ++i) b[i] += opb(k, i);
+		}
+
+		//ДОБАВЛЯЕМ МОМЕНТ ЕСЛИ ОН ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
+		if(k == km)
+		{
+			for(int i = 0; i < 4; ++i) b[i] += (1.0/(x[k+1] - x[k]))*M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
+		}
+
+		//ДОБАВЛЯЕМ СИЛЫ ЕСЛИ ОНА ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
+		if(k == kp)
+		{
+			for(int i = 0; i < 4; ++i) b[i] -= P*BASIS[i]((xP - x[k])/(x[k+1] - x[k]));
+		}
+
+		//ВЫЧИСЛЕН ВЕКТОР КОНЕЧНОГО ЭЛЕМЕНТА
+
+		//ВЫВОД ВЕКТОРА (k+1)-ГО КОНЕЧНОГО ЭЛЕМЕНТА
+		info_b(k+1);
+
+		//ЗАПОНЕНИЕ ЧАСТИ ВЕКТОРА ПРАВОЙ ЧАСТИ СООТВЕТСТВУЮЩЕЙ (k+1)-МУ КОНЕЧНОМУ ЭЛЕМЕНТУ
+		for(int i = 0; i < 4; ++i)
+		{
+			B[2*k+i] = b[i];
+		}
+		//ЧАСТЬ ВЕКТОРА СООТВЕТСТВУЮЩАЯ (k+1)-МУ КОНЕЧНОМУ ЭЛЕМЕНТУ ЗАПОЛНЕНА
+	}
+
+}
+
 void Solution::set_zeros_A()
 {
 	for(int i = 0; i < N2*N2; ++i) A[i] = 0.0;
@@ -229,16 +339,26 @@ void Solution::set_zeros_a()
 	for(int i = 0; i < 16; ++i) a[i] = 0.0;
 }
 
-double Solution::op(int k, int i, int j)
+void Solution::set_zeros_B()
 {
-	// ВЫЧИСЛЕНИЕ БИЛИНЕЙНОГО ФУНКЦИОНАЛА
-	// k ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА
-	// (i,j) ИНДЕКСЫ БАЗИСНЫХ ФУНКЦИЙ
+	for(int i = 0; i < N2; ++i) B[i] = 0.0;
+}
 
-	// ДОМНОЖАЕМ ПРОИЗВЕДЕНИЕ ФУНКЦИЙ НА dot
+void Solution::set_zeros_b()
+{
+	for(int i = 0; i < 4; ++i) b[i] = 0.0;
+}
+
+double Solution::opa(int k, int i, int j)
+{
+	//ВЫЧИСЛЕНИЕ БИЛИНЕЙНОГО ФУНКЦИОНАЛА
+	//k ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА
+	//(i,j) ИНДЕКСЫ БАЗИСНЫХ ФУНКЦИЙ
+
+	//ДОМНОЖАЕМ ПРОИЗВЕДЕНИЕ ФУНКЦИЙ НА dot
 	double dot = E * J / pow(x[k+1] - x[k], 3);
 
-	// ПРИБАВЛЯЕМ СЛАГАЕМОЕ ОТ ПРУЖИНЫ ЕСЛИ РАБОТАЕМ НА КОНЕЧНОМ ЭЛЕМЕНТЕ С ПРУЖИНОЙ
+	//ПРИБАВЛЯЕМ СЛАГАЕМОЕ ОТ ПРУЖИНЫ ЕСЛИ РАБОТАЕМ НА КОНЕЧНОМ ЭЛЕМЕНТЕ С ПРУЖИНОЙ
 	if(k == kk)
 	{
 		//ТОЧКА В КОТОРОЙ НЕОБХОДИМО ВЫЧИСЛИТЬ ЗНАЧЕНИЕ ФУНКЦИЙ
@@ -248,7 +368,26 @@ double Solution::op(int k, int i, int j)
 		return dot * c[i*4 + j] + k*BASIS[i](y)*BASIS[j](y);
 	}
 
-	// ИНАЧЕ ТОЛЬКО ПРОИЗВЕДЕНИЕ
+	//ИНАЧЕ ТОЛЬКО ПРОИЗВЕДЕНИЕ
 	return dot * c[i*4 + j];
 
+}
+
+double Solution::opb(int k, int i)
+{
+	//СЧИТАЕТ ИНТЕГРАЛ ОТ РАСПРЕДЛЕННОЙ НАГРУЗКИ
+
+	//МАССИВЫ ИНТЕГРАЛОВ ОТ БАЗИСНЫХ ФУНКЦИЙ И Y*БАЗИСНЫЕ ФУНКЦИИ НА [0,1]
+	double integral[4] = {0.5, 0.08333333, 0.5, -0.08333333};
+	double integral_y[4] = {0.15, 0.03333333, 0.35, -0.05};
+
+	//КОНСТАНТЫ РАСПРЕДЕЛЕННОЙ НАГРУЗКИ ДЛЯ УПРОЩЕНИЯ ЗАПИСИ ВЫРАЖЕНИЯ q(x) = k1 + k2*x
+	double k2 = (qB - qA)/(xq2 - xq1);
+	double k1 = qA - xq1*k2;
+
+	//ШАГ
+	double h = x[k+1] - x[k];
+
+	//ИНТЕГРАЛ ВЫРАЖЕННЫЙ ЧЕРЕЗ ЛОКАЛЬНЫЕ КООРДИНАТЫ
+	return h*(k1+k2*x[k])*integral[i] + pow(h,2)*k2*integral_y[i];
 }
