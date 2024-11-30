@@ -49,10 +49,15 @@ Solution::Solution(int N)
     this->N = N;
     this->M = N - 1;
     this->N2 = 2*N;
+    this->N3 = N2 - 4;
 
     this->x = new double[N];
     this->A = new double[N2*N2];
     this->B = new double[N2];
+    this->C = new double[N2];
+    this->Asol = new double[N3*N3];
+    this->Bsol = new double[N3];
+    this->Csol = new double[N3];
 
     //ЗАПОЛНЕНИЕ МАТРИЦЫ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ
     fill_c();
@@ -66,17 +71,38 @@ Solution::Solution(int N)
     //ВЫВОД ДАННЫХ О СЕТКЕ
     info_mesh();
 
-    //ЗАПОЛНЕНИЕ ПЕРВОНАЧАЛЬНОЙ МАТРИЦЫ ЖЕСТКОСТИ	
+    //ЗАПОЛНЕНИЕ МАТРИЦЫ ЖЕСТКОСТИ	
     fill_A();
 
-    //ВЫВОД ДАННЫХ О ПЕРВОНАЧАЛЬНОЙ МАТРИЦЕ ЖЕСТКОСТИ
+    //ВЫВОД ДАННЫХ О МАТРИЦЕ ЖЕСТКОСТИ
     info_A();
 
-    //ЗАПОЛНЕНИЕ ПЕРВОНАЧАЛЬНОГО ВЕКТОРА ПРАВОЙ ЧАСТИ B
+    //ЗАПОЛНЕНИЕ ВЕКТОРА НАГРУЗКИ B
     fill_B();
 
-    //ВЫВОД ДАННЫХ О ПЕРВОНАЧАЛЬНОМ ВЕКТОРЕ ПРАВОЙ ЧАСТИ B
+    //ВЫВОД ДАННЫХ О ВЕКТОРЕ НАГРУЗКИ B
     info_B();
+
+    //ЗАПОЛНЕНИЕ МАТРИЦЫ ДЛЯ РЕШЕНИЯ СИСТЕМЫ
+    fill_Asol();
+
+    //ВЫВОД ДАННЫХ О МАТРИЦЕ ДЛЯ РЕШЕНИЯ СИСТЕМЫ
+    info_Asol();
+
+    //ЗАПОЛНЕНИЕ ВЕКТОРА ДЛЯ РЕШЕНИЯ СИСТЕМЫ
+    fill_Bsol();
+
+    //ВЫВОД ДАННЫХ О ВЕКТОРЕ ДЛЯ РЕШЕНИЯ СИСТЕМЫ
+    info_Bsol();
+
+    //РЕШЕНИЕ СИСТЕМЫ
+    solve();
+
+    //ВЫВОД ВЕКТОРА РЕШЕНИЯ СИСТЕМЫ Csol
+    info_Csol();
+
+    //ВЫВОД ВЕКТОРА РАЗЛОЖЕНИЯ ПО БАЗИСУ C
+    info_C();
 
     //ЗАКРЫТИЕ LOG ФАЙЛА
     logfile.close();
@@ -88,6 +114,10 @@ Solution::~Solution()
 	if(x != nullptr) delete x;
 	if(A != nullptr) delete A;
 	if(B != nullptr) delete B;
+	if(C != nullptr) delete C;
+	if(Asol != nullptr) delete Asol;
+	if(Bsol != nullptr) delete Bsol;
+	if(Csol != nullptr) delete Csol;
 }
 
 void Solution::info_base()
@@ -104,6 +134,10 @@ void Solution::info_mesh()
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С ПРУЖИНОЙ | kk = " << kk + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С МОМЕНТОМ | km = " << km + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С СИЛОЙ | kp = " << kp + 1 << endl;
+	logfile << "НОМЕР УЗЛА ПЕРВОЙ ОПОРЫ | Ridx = " << Ridx[0] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ВТОРОЙ ОПОРЫ | Ridx = " << Ridx[1] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ТРЕТЬЕЙ ОПОРЫ | Ridx = " << Ridx[2] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ЧЕТВЕРТОЙ ОПОРЫ | Ridx = " << Ridx[3] + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ НАЧИНАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq1 = " << kq1 + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ ЗАКАНЧИВАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq2 = " << kq2 + 1 << endl;
 
@@ -116,7 +150,7 @@ void Solution::info_mesh()
 
 void Solution::info_A()
 {
-	logfile << "ПЕРВОНАЧАЛЬНАЯ МАТРИЦА ЖЕСТКОСТИ A::" << endl;
+	logfile << "ПОЛНАЯ МАТРИЦА ЖЕСТКОСТИ A::" << endl;
 	for(int i = 0; i < N2; ++i)
 	{
 		for(int j = 0; j < N2; ++j)
@@ -130,8 +164,14 @@ void Solution::info_A()
 
 void Solution::info_B()
 {
-	logfile << "ПЕРВОНАЧАЛЬНЫЙ ВЕКТОР ПРАВОЙ ЧАСТИ B::" << endl;
+	logfile << "ПОЛНЫЙ ВЕКТОР НАГРУЗКИ B::" << endl;
 	for(int i = 0; i < N2; ++i) logfile << B[i] << endl;
+}
+
+void Solution::info_C()
+{
+	logfile << "ВЕКТОР РАЗЛОЖЕНИЯ ПО БАЗИСУ C::" << endl;
+	for(int i = 0; i < N2; ++i) logfile << C[i] << endl;
 }
 
 void Solution::info_a(int k)
@@ -151,7 +191,7 @@ void Solution::info_a(int k)
 
 void Solution::info_b(int k)
 {
-	logfile << "ВЕКТОР ПРАВОЙ ЧАСТИ " << k << "-ГО КОНЕЧНОГО ЭЛЕМЕНТА::" << endl;
+	logfile << "ВЕКТОР НАГРУЗКИ " << k << "-ГО КОНЕЧНОГО ЭЛЕМЕНТА::" << endl;
 	for(int i = 0; i < 4; ++i) logfile << b[i] << endl;
 }
 
@@ -163,6 +203,33 @@ double Solution::min_h()
 		if((x[i+1] - x[i]) < min_h) min_h = x[i+1] - x[i];
 	}
 	return min_h;
+}
+
+void Solution::info_Asol()
+{
+	logfile << "МАТРИЦА ДЛЯ РЕШЕНИЯ СИСТЕМЫ Asol::" << endl;
+	for(int i = 0; i < N3; ++i) 
+	{
+		for(int j = 0; j < N3; ++j)
+		{
+			logfile << setw(10) << Asol[i*N3 + j] << " ";
+		}
+
+		logfile << endl;
+	}
+
+}
+
+void Solution::info_Bsol()
+{
+	logfile << "ВЕКТОР ДЛЯ РЕШЕНИЯ СИСТЕМЫ Bsol::" << endl;
+	for(int i = 0; i < N3; ++i) logfile << Bsol[i] << endl;
+}
+
+void Solution::info_Csol()
+{
+	logfile << "ВЕКТОР РЕШЕНИЯ СИСТЕМЫ Csol::" << endl;
+	for(int i = 0; i < N3; ++i) logfile << Csol[i] << endl;
 }
 
 void Solution::create_mesh()
@@ -224,6 +291,15 @@ void Solution::create_mesh()
    		if(abs(xq1 - x[k]) < 1.0e-16) kq1 = k;
    		if(abs(xq2 - x[k]) < 1.0e-16) kq2 = k;
    	}
+
+   	//ПРИСВАИВАНИЕ ЗНАЧЕНИЙ МАССИВУ ИНДЕКСОВ ОПОР В СЕТКЕ
+   	for(int i = 0; i < N; ++i)
+   	{
+   		if(abs(x[i] - xR1) < 1.0e-16) Ridx[0] = i;
+   		if(abs(x[i] - xR2) < 1.0e-16) Ridx[1] = i;
+   		if(abs(x[i] - xR3) < 1.0e-16) Ridx[2] = i;
+   		if(abs(x[i] - xR4) < 1.0e-16) Ridx[3] = i;
+   	}
 }
 
 void Solution::fill_c()
@@ -239,7 +315,7 @@ void Solution::fill_c()
 
 void Solution::fill_A()
 {
-	//ВЫЧИСЛЕНИЕ ПЕРВОНАЧАЛЬНОЙ МАТРИЦЫ ЖЕСТКОСТИ
+	//ВЫЧИСЛЕНИЕ МАТРИЦЫ ЖЕСТКОСТИ
 	set_zeros_A();
 
 	//ЦИКЛ ПО КОНЕЧНЫМ ЭЛЕМЕНТАМ
@@ -275,7 +351,7 @@ void Solution::fill_A()
 
 void Solution::fill_B()
 {
-	//ВЫЧИСЛЕНИЕ ПЕРВОНАЧАЛЬНОГО ВЕКТОРА B ПРАВОЙ ЧАСТИ
+	//ВЫЧИСЛЕНИЕ ВЕКТОРА НАГРУЗКИ
 	set_zeros_B();
 
 	//ЛОГИЧЕСКАЯ ПЕРЕМЕННАЯ ДЛЯ ОТСЛЕЖИВАНИЯ КОНЕЧНЫХ ЭЛЕМЕНТОВ С РАСПРЕДЕЛЕННОЙ НАГРУЗКОЙ
@@ -319,14 +395,159 @@ void Solution::fill_B()
 		//ВЫВОД ВЕКТОРА (k+1)-ГО КОНЕЧНОГО ЭЛЕМЕНТА
 		info_b(k+1);
 
-		//ЗАПОНЕНИЕ ЧАСТИ ВЕКТОРА ПРАВОЙ ЧАСТИ СООТВЕТСТВУЮЩЕЙ (k+1)-МУ КОНЕЧНОМУ ЭЛЕМЕНТУ
+		//ЗАПОЛНЕНИЕ ЧАСТИ ВЕКТОРА НАГРУЗКИ СООТВЕТСТВУЮЩЕЙ (k+1)-МУ КОНЕЧНОМУ ЭЛЕМЕНТУ
 		for(int i = 0; i < 4; ++i)
 		{
-			B[2*k+i] = b[i];
+			B[2*k+i] += b[i];
 		}
 		//ЧАСТЬ ВЕКТОРА СООТВЕТСТВУЮЩАЯ (k+1)-МУ КОНЕЧНОМУ ЭЛЕМЕНТУ ЗАПОЛНЕНА
 	}
 
+}
+
+void Solution::fill_Asol()
+{
+	//ИМЕЕТСЯ 4 ОПОРЫ СЛЕДОВАТЕЛЬНО НЕОБХОДИМО УДАЛИТЬ ИЗ МАТРИЦЫ ЖЕСТКОСТИ A 4 СТРОКИ И 4 СТОЛБЦА
+	//РАЗМЕРНОСТЬ МАТРИЦЫ Asol (N3xN3) ГДЕ N3 = N2 - 4
+
+	//МАССИВ ИНДЕКСОВ СТОЛБЦОВ И СТРОК ДЛЯ УДАЛЕНИЯ
+	int to_del[4] = {2*Ridx[0], 2*Ridx[1], 2*Ridx[2], 2*Ridx[3]};
+
+	//СЧЕТЧИКИ УДАЛЕННЫХ СТРОК И СТОЛБЦОВ СООТВЕТСТВЕННО
+	int counti = 0, countj = 0;
+
+	//ЦИКЛ ПО СТРОКАМ МАТРИЦЫ A
+	for(int i = 0; i < N2; ++i)
+	{
+		//ЕСЛИ СТРОКА МАТРИЦЫ A ПОДЛЕЖИТ УДАЛЕНИЮ ТО ПРОПУСКАЕМ ЕЕ 
+		if(i == to_del[counti])
+		{
+			counti += 1;
+			continue;
+		}
+
+		//ОБНУЛЕНИЕ СЧЕТЧИКА
+		countj = 0;
+
+		//ЕСЛИ СТРОКА НЕ ДЛЯ УДАЛЕНИЯ ЗАПУСКАЕТСЯ ЦИКЛ ПО СТОЛБЦАМ МАТРИЦЫ A
+		for(int j = 0; j < N2; ++j)
+		{
+
+			//ПРОВЕРКА НА ТО ПОДЛЕДЖИТ ЛИ СТОЛБЕЦ МАТРИЦЫ A УДАЛЕНИЮ
+			if(j == to_del[countj])
+			{
+				countj += 1;
+				continue;
+			}
+
+			//ЗАПОЛНЕНИЕ МАТРИЦЫ Asol
+			//НОМЕРА СТРОК И СТОЛБЦОВ ДЛЯ МАТРИЦЫ Asol ЕСТЬ (i - counti) И (j - countj)
+			Asol[(i - counti)*N3 + (j - countj)] = A[i*N2 + j];
+		}
+	}	
+}
+
+void Solution::fill_Bsol()
+{
+	//РАЗМЕРНОСТЬ ВЕКТОРА Bsol N3
+	//НЕОБХОДИМО УДАЛИТЬ ИЗ Bsol 4 КОМПОНЕНТЫ
+
+	//МАССИВ ИНДЕКСОВ СТОЛБЦОВ И СТРОК ДЛЯ УДАЛЕНИЯ
+	int to_del[4] = {2*Ridx[0], 2*Ridx[1], 2*Ridx[2], 2*Ridx[3]};
+
+	//СЧЕТЧИК УДАЛЕННЫХ КОМПОНЕНТ
+	int count = 0;
+
+	//ЦИКЛ ПО КОМПОНЕНТАМ ВЕКТОРА B
+	for(int i = 0; i < N2; ++i)
+	{
+		//ЕСЛИ КОМПОНЕНТА ПОДЛЕЖИТ УДАЛЕНИЮ ПРОПУСКАЕМ ЕЕ
+		if(i == to_del[count])
+		{
+			count += 1;
+			continue;
+		}
+
+		//НОМЕР КОМПОНЕНТЫ Bsol (i - count)
+		Bsol[i-count] = B[i];
+	}
+
+}
+
+void Solution::solve()
+{
+	//РЕШАЕТСЯ СИСТЕМА УРАВНЕНИЙ МЕТОДОМ СОПРЯЖЕННЫХ ГРАДИЕНТОВ (ЗАПОЛНЕНИЕ ВЕКТОРА Csol)
+	//РАЗМЕРНОСТЬ СИСТЕМЫ N3
+	//ЗАПОЛНЯЕТСЯ ВЕКТОР C
+
+	//РЕШЕНИЕ СИСТЕМЫ МЕТОДОМ СОПРЯЖЕННЫХ ГРАДИЕНТОВ
+	//ПЕРЕМЕННЫЕ НЕОБХОДИМЫЕ ДЛЯ РЕАЛИЗАЦИИ МЕТОДА
+	double alpha;
+	double beta;
+	double *r = new double[N3];
+	double *p = new double[N3];
+	double *q = new double[N3];
+
+	//ПОДГОТОВКА ЗНАЧЕНИЙ 
+	for(int i = 0; i < N3; ++i)
+	{
+		Csol[i] = 0.0;
+		r[i] = Bsol[i];
+		p[i] = Bsol[i];
+	}
+
+	double rtmp = 0.0;
+	for (size_t i = 0; i < N3; ++i) rtmp += r[i] * r[i];
+
+	//ОСНОВНОЙ ЦИКЛ РЕШЕНИЯ
+	double ptmp;
+	for(size_t  k = 0; k < N3; ++k)
+	{
+		ptmp = 0.0;
+		for(size_t i = 0; i < N3; ++i)
+		{
+			q[i] = 0.0;
+			for(size_t j = 0; j < N3; ++j) {q[i] += Asol[i * N + j] * p[j];}
+			ptmp += p[i] * q[i];
+		}
+		alpha = rtmp / ptmp;
+
+		ptmp = 0.0;
+		for(size_t i = 0; i < N3; ++i)
+		{
+			Csol[i] += alpha * p[i];
+			r[i] -= alpha * q[i];
+			ptmp += r[i] * r[i];
+		}
+		beta = ptmp / rtmp;
+		rtmp = ptmp;
+		for(size_t i = 0; i < N3; ++i) { p[i] = r[i] + beta * p[i];}
+	}
+	//СИСТЕМА РЕШЕНА
+	//ЧИСТКА ПАМЯТИ ПОСЛЕ РЕШЕНИЯ СИСТЕМЫ
+	delete r,p,q;
+
+	//НАЧИНАЕТСЯ ЗАПОЛНЕНИЕ ВЕКТОРА С
+
+	//ПРОПУЩЕННЫЕ ИНДЕКСЫ
+	int miss[4] = {2*Ridx[0], 2*Ridx[1], 2*Ridx[2], 2*Ridx[3]};
+
+	//СЧЕТЧИК ВЫСТАВЛЕННЫХ ЗНАЧЕНИЙ
+	int count = 0;
+	for(int i = 0; i < N2; ++i)
+	{
+		//В СЛУЧАЕ ПРОПУЩЕННОГО ЗНАЧЕНИЯ
+		if(i == miss[count])
+		{
+			count += 1;
+			C[i] = 0.0;
+			continue;
+		}
+
+		//В СЛУЧАЕ НУЖНОГО ЗНАЧЕНИЯ
+		C[i] = Csol[i - count];
+	}
+	//ВЕКТОР C ЗАПОЛНЕН
 }
 
 void Solution::set_zeros_A()
