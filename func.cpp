@@ -203,7 +203,7 @@ void Solution::info_b(int k)
 
 void Solution::info_nv()
 {
-	logfile << "НОРМА L1 НЕВЯЗКИ ПОЛНОЙ МАТРИЦЫ ЖЕСТКОСТИ::" << endl;
+	logfile << "НОРМА L1 НЕВЯЗКИ УРЕЗАННОЙ МАТРИЦЫ ЖЕСТКОСТИ Asol::" << endl;
 	logfile << nv() << endl;
 }
 
@@ -219,16 +219,16 @@ double Solution::min_h()
 
 double Solution::nv()
 {
-	//ВЫЧИСЛЯЕТ НОРМУ L1 НЕВЯЗКИ A*C - B
+	//ВЫЧИСЛЯЕТ НОРМУ L1 НЕВЯЗКИ Asol*Csol - Bsol
 	double nv = 0.0;
 
 	//i-Я КОМПОНЕНТА
 	double nvi;
-	for(int i = 0; i < N2; ++i)
+	for(int i = 0; i < N3; ++i)
 	{
 		nvi = 0.0;
-		for(int j = 0; j < N2; ++j) nvi += A[i*N2 + j]*C[j];
-		nv += abs(nvi - B[i]);
+		for(int j = 0; j < N3; ++j) nvi += Asol[i*N3 + j]*Csol[j];
+		nv += abs(nvi - Bsol[i]);
 	}
 	return nv;
 }
@@ -409,7 +409,7 @@ void Solution::fill_B()
 		//ДОБАВЛЯЕМ МОМЕНТ ЕСЛИ ОН ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
 		if(k == km)
 		{
-			for(int i = 0; i < 4; ++i) b[i] += (1.0/(x[k+1] - x[k]))*CONST::M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
+			for(int i = 0; i < 4; ++i) b[i] -= (1.0/(x[k+1] - x[k]))*CONST::M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
 		}
 
 		//ДОБАВЛЯЕМ СИЛУ ЕСЛИ ОНА ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
@@ -529,7 +529,7 @@ void Solution::solve()
 
 	//ОСНОВНОЙ ЦИКЛ РЕШЕНИЯ
 	double ptmp;
-	for(size_t  k = 0; k < N3; ++k)
+	for(size_t  k = 0; k < N3 + 20; ++k)
 	{
 		ptmp = 0.0;
 		for(size_t i = 0; i < N3; ++i)

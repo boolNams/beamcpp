@@ -8,10 +8,10 @@ using namespace std;
 
 namespace CONST
 {
-    extern const double M = 0.0;
-    extern const double P = 1.0;
+    extern const double M = 0.5;
+    extern const double P = 0.0;
     extern const double k = 0.0;
-    extern const double qA = 0.0;
+    extern const double qA = 1.0;
     extern const double qB = 0.0;
     extern const double E = 300.0;
     extern const double J = 10.0;
