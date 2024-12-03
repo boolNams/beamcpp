@@ -104,6 +104,12 @@ Solution::Solution(int N)
     //ВЫВОД ВЕКТОРА РАЗЛОЖЕНИЯ ПО БАЗИСУ C
     info_C();
 
+    //ВЫВОД НОРМЫ НЕВЯЗКИ
+    info_nv();
+
+    //ЗАПОЛНЕНИЕ TXT ФАЙЛА ДЛЯ ПОСТРОЕНИЯ ГРАФИКИ
+    fill_txt();
+
     //ЗАКРЫТИЕ LOG ФАЙЛА
     logfile.close();
 }
@@ -195,6 +201,12 @@ void Solution::info_b(int k)
 	for(int i = 0; i < 4; ++i) logfile << b[i] << endl;
 }
 
+void Solution::info_nv()
+{
+	logfile << "НОРМА L1 НЕВЯЗКИ ПОЛНОЙ МАТРИЦЫ ЖЕСТКОСТИ::" << endl;
+	logfile << nv() << endl;
+}
+
 double Solution::min_h()
 {
 	double min_h = L;
@@ -203,6 +215,22 @@ double Solution::min_h()
 		if((x[i+1] - x[i]) < min_h) min_h = x[i+1] - x[i];
 	}
 	return min_h;
+}
+
+double Solution::nv()
+{
+	//ВЫЧИСЛЯЕТ НОРМУ L1 НЕВЯЗКИ A*C - B
+	double nv = 0.0;
+
+	//i-Я КОМПОНЕНТА
+	double nvi;
+	for(int i = 0; i < N2; ++i)
+	{
+		nvi = 0.0;
+		for(int j = 0; j < N2; ++j) nvi += A[i*N2 + j]*C[j];
+		nv += abs(nvi - B[i]);
+	}
+	return nv;
 }
 
 void Solution::info_Asol()
@@ -381,13 +409,13 @@ void Solution::fill_B()
 		//ДОБАВЛЯЕМ МОМЕНТ ЕСЛИ ОН ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
 		if(k == km)
 		{
-			for(int i = 0; i < 4; ++i) b[i] += (1.0/(x[k+1] - x[k]))*M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
+			for(int i = 0; i < 4; ++i) b[i] += (1.0/(x[k+1] - x[k]))*CONST::M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
 		}
 
-		//ДОБАВЛЯЕМ СИЛЫ ЕСЛИ ОНА ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
+		//ДОБАВЛЯЕМ СИЛУ ЕСЛИ ОНА ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
 		if(k == kp)
 		{
-			for(int i = 0; i < 4; ++i) b[i] -= P*BASIS[i]((xP - x[k])/(x[k+1] - x[k]));
+			for(int i = 0; i < 4; ++i) b[i] += CONST::P*BASIS[i]((xP - x[k])/(x[k+1] - x[k]));
 		}
 
 		//ВЫЧИСЛЕН ВЕКТОР КОНЕЧНОГО ЭЛЕМЕНТА
@@ -450,7 +478,7 @@ void Solution::fill_Asol()
 void Solution::fill_Bsol()
 {
 	//РАЗМЕРНОСТЬ ВЕКТОРА Bsol N3
-	//НЕОБХОДИМО УДАЛИТЬ ИЗ Bsol 4 КОМПОНЕНТЫ
+	//НЕОБХОДИМО УДАЛИТЬ ИЗ B 4 КОМПОНЕНТЫ
 
 	//МАССИВ ИНДЕКСОВ СТОЛБЦОВ И СТРОК ДЛЯ УДАЛЕНИЯ
 	int to_del[4] = {2*Ridx[0], 2*Ridx[1], 2*Ridx[2], 2*Ridx[3]};
@@ -507,7 +535,7 @@ void Solution::solve()
 		for(size_t i = 0; i < N3; ++i)
 		{
 			q[i] = 0.0;
-			for(size_t j = 0; j < N3; ++j) {q[i] += Asol[i * N + j] * p[j];}
+			for(size_t j = 0; j < N3; ++j) q[i] += Asol[i * N3 + j] * p[j];
 			ptmp += p[i] * q[i];
 		}
 		alpha = rtmp / ptmp;
@@ -577,7 +605,7 @@ double Solution::opa(int k, int i, int j)
 	//(i,j) ИНДЕКСЫ БАЗИСНЫХ ФУНКЦИЙ
 
 	//ДОМНОЖАЕМ ПРОИЗВЕДЕНИЕ ФУНКЦИЙ НА dot
-	double dot = E * J / pow(x[k+1] - x[k], 3);
+	double dot = CONST::E * CONST::J / pow(x[k+1] - x[k], 3);
 
 	//ПРИБАВЛЯЕМ СЛАГАЕМОЕ ОТ ПРУЖИНЫ ЕСЛИ РАБОТАЕМ НА КОНЕЧНОМ ЭЛЕМЕНТЕ С ПРУЖИНОЙ
 	if(k == kk)
@@ -603,8 +631,8 @@ double Solution::opb(int k, int i)
 	double integral_y[4] = {0.15, 0.03333333, 0.35, -0.05};
 
 	//КОНСТАНТЫ РАСПРЕДЕЛЕННОЙ НАГРУЗКИ ДЛЯ УПРОЩЕНИЯ ЗАПИСИ ВЫРАЖЕНИЯ q(x) = k1 + k2*x
-	double k2 = (qB - qA)/(xq2 - xq1);
-	double k1 = qA - xq1*k2;
+	double k2 = (CONST::qB - CONST::qA)/(xq2 - xq1);
+	double k1 = CONST::qA - xq1*k2;
 
 	//ШАГ
 	double h = x[k+1] - x[k];
@@ -641,4 +669,40 @@ double Solution::w(double z)
 	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
 
 	return wz;
+}
+
+void Solution::fill_txt()
+{
+	//НЕОБХОДИМО ЗАПОЛНИТЬ graph_val.txt ФАЙЛ ЗНАЧЕНИЯМИ
+	ofstream valtxt;
+
+	//ФАЙЛ ДЛЯ СЧИТЫВАНИЯ ТОЧЕК В КОТОРЫХ НЕОБХОДИМО ПРОИЗВЕСТИ ВЫЧИСЛЕНИЕ graph_arg.txt
+	ifstream argtxt;
+
+	//ОТКРЫТИЕ graph_arg.txt ФАЙЛА ДЛЯ ЧТЕНИЯ
+    argtxt.open("graph_arg.txt");
+
+    //КОЛИЧЕСТВО ТОЧЕК
+    int Nz;
+    argtxt >> Nz;
+
+    //МАССИВ ТОЧЕК
+    double *z = new double[Nz];
+    for(int i = 0; i < Nz; ++i) argtxt >> z[i];
+
+    //ЗАКРЫТИЕ graph_arg.txt ФАЙЛА
+    argtxt.close();
+
+	//ОТКРЫТИЕ ФАЙЛА graph_val.txt ДЛЯ ЗАПИСИ
+	valtxt.open("graph_val.txt");
+	for(int i = 0; i < Nz; ++i)
+	{
+		valtxt << w(z[i]) << endl;
+	}
+
+	//ЗАКРЫТИЕ graph_val.txt ФАЙЛА
+	valtxt.close(); 
+
+   	//ЧИСТКА ПАМЯТИ 
+   	delete z;
 }

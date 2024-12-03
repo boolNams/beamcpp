@@ -3,15 +3,18 @@ using namespace std;
 
 extern ofstream logfile;
 
-extern const double L;
-extern const double M;
-extern const double P;
-extern const double k;
-extern const double qA;
-extern const double qB;
-extern const double E;
-extern const double J;
+namespace CONST
+{
+    extern const double M;
+    extern const double P;
+    extern const double k;
+    extern const double qA;
+    extern const double qB;
+    extern const double E;
+    extern const double J;
+}
 
+extern const double L;
 extern const double xM;
 extern const double xP;
 extern const double xk;
@@ -25,7 +28,7 @@ class Solution
     //M КОЛИЧЕТСТВО КОНЕЧНЫХ ЭЛЕМЕНТОВ
     //x МАССИВ УЗЛОВ
     //A МАТРИЦА ЖЕСТКОСТИ
-    //B ПРАВАЯ ЧАСТЬ
+    //B ВЕКТОР НАГРУЗКИ
     //N2 ЧИСЛО СТЕПЕНЕЙ СВОБОДЫ
     //a МАТРИЦА ЖЕТСКОСТИ КОНЕЧНОГО ЭЛЕМЕНТА
     //b ВЕКТОР НАГРУЗКИ КОНЕЧНОГО ЭЛЕМЕНТА
@@ -82,6 +85,7 @@ public:
     //info_Asol ВНОСИТ ИНФОРМАЦИЮ О МАТРИЦЕ Asol
     //info_Bsol ВНОСИТ ИНФОРМАЦИЮ О ВЕКТОРЕ Bsol
     //info_Csol ВНОСИТ ИНФОРМАЦИЮ О ВЕКТОРЕ Csol
+    //nv_info ВНОСИТ ИНФОРМАЦИЮ О НОРМЕ ВЕКТОРА НЕВЯЗКИ
 
     void info_base();
     void info_mesh();
@@ -93,6 +97,7 @@ public:
     void info_Bsol();
     void info_Csol();
     void info_C();
+    void info_nv();
 
     //create_mesh ПОСТРОЕНИЕ СЕТКИ
     //fill_A ЗАПОЛНЕНИЕ МАТРИЦЫ A
@@ -103,6 +108,7 @@ public:
     //fill_Asol ЗАПОЛНЕНИЕ МАТРИЦЫ Asol
     //fill_Bsol ЗАПОЛНЕНИЕ ВЕКТОРА Bsol
     //solve РЕШАЕТ СИСТЕМУ УРАВНЕНИЙ
+    //fill_txt ЗАПОЛНЯЕТ ФАЙЛ graph_val ЗНАЧЕНИЯМИ
 
     void create_mesh();
     void fill_A();
@@ -115,14 +121,17 @@ public:
     void set_zeros_a();
     void set_zeros_b();
     void solve();
+    void fill_txt();
 
     //min_h МИНИМАЛЬНАЯ ДЛИНА В СЕТКЕ
     //opa БИЛИНЕЙНЫЙ ОПЕРАТОР НА ФУНКЦИЯХ С ИНДЕКСАМИ i И j НА ЭЛЕМЕНТЕ С ИНДЕКСОМ k
     //opb ИНТЕГРАЛ РАСПРЕДЕЛЕННОЙ НАГРУЗКИ НА ФУНКЦИИ С ИНДЕКСОМ i НА ЭЛЕМЕНТЕ С ИНДЕКСОМ k
     //w ВЫЧИСЛЯЕТ ЗНАЧЕНИЕ ПРОГИБА В ТОЧКЕ z ИЗ [0,L]
+    //nv ВЫЧИСЛЯЕТ НОРМУ ВЕКТОРА НЕВЯЗКИ A*C - B
 
     double min_h();
     double opa(int k, int i, int j);
     double opb(int k, int i);
     double w(double z);
+    double nv();
 };
