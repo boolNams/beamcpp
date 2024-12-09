@@ -104,7 +104,7 @@ for dot in dots:
 import numpy as np
 
 #КОЛИЧЕСТВО ТОЧЕК НА ГРАФИКЕ
-N = 1000
+N = 500
 
 #НЕОБХОДИМО ВЫЧИСЛИТЬ ЗНАЧЕНИЯ В ДАННЫХ ТОЧКАХ
 arg = np.linspace(0,25.0,N)
@@ -185,12 +185,14 @@ for i in range(0,len(axs)):
     valSAGE = np.zeros(1)
     axs[i,0].plot(arg,valSAGE, 'yo', label = "k")
     axs[i,1].plot(arg, valSAGE, 'yo', label = "k")
-    
+
+    '''
     arg = np.array([Aq, Bq], dtype = float)									        # построение распределенной нагрузки (только на SAGE)
     valSAGE = np.array([qA, qB], dtype = float)
     axs[i,0].plot(arg,valSAGE, color = 'g', alpha = 0.3, label = "q")
     axs[i,0].fill_between(arg, valSAGE,color = 'g', alpha = 0.3)
-    
+    '''
+
     axs[i,0].grid()
     axs[i,1].grid()
     axs[i,0].legend()
