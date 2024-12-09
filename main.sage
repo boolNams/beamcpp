@@ -104,7 +104,7 @@ for dot in dots:
 import numpy as np
 
 #КОЛИЧЕСТВО ТОЧЕК НА ГРАФИКЕ
-N = 100
+N = 1000
 
 #НЕОБХОДИМО ВЫЧИСЛИТЬ ЗНАЧЕНИЯ В ДАННЫХ ТОЧКАХ
 arg = np.linspace(0,25.0,N)
@@ -117,12 +117,11 @@ with open("graph_arg.txt",'w') as txt:
 #ВЫЗОВ ПРОГРАММЫ C++
 os.system("bash run.sh")
 
-#graph_val ФАЙЛ ДЛЯ ПЕРЕДАЧИ ЗНАЧЕНИЙ В ПРОГРАММУ SAGE
+#graph_w ФАЙЛ ДЛЯ ПЕРЕДАЧИ ЗНАЧЕНИЙ В ПРОГРАММУ SAGE
 valCPP = np.genfromtxt("graph_val.txt")
 
 #check_txt ФАЙЛ ДЛЯ ПЕРЕДАЧИ ЗНАЧЕНИЙ ТОЧЕК ПРОВЕРКИ
 checkCPP = np.genfromtxt("check.txt")
-check_arg = np.linspace(0,25.0,26)
 
 #================================================== END C++
 #================================================== ГРАФИКА
@@ -144,20 +143,27 @@ for i in range(0,N):                                                    # пос
     valSAGE[i] = Q(x = arg[i]).subs(heaviside(0.0) == 0)
 axs[0,0].plot(arg, valSAGE, linewidth = width)
 
+axs[0,1].plot(arg, valCPP[:,3], linewidth = width)
+
 for i in range(0,N):                                                    # построение моментов
 	valSAGE[i] = MM(x = arg[i]).subs(heaviside(0.0) == 0)
 axs[1,0].plot(arg, valSAGE, linewidth = width)
+
+axs[1,1].plot(arg, valCPP[:,2], linewidth = width)
 
 for i in range(0,N):                                                    # построение углов
 	valSAGE[i] = teta(x = arg[i]).subs(heaviside(0.0) == 0)
 axs[2,0].plot(arg, valSAGE, linewidth = width)
 
+axs[2,1].plot(arg, valCPP[:,1], linewidth = width)
+axs[2,1].plot(checkCPP[:,0], checkCPP[:,2], 'ko', markersize = 3)
+
 for i in range(0,N):                                                    # построение прогиба
 	valSAGE[i] = w(x = arg[i]).subs(heaviside(0.0) == 0)
 axs[3,0].plot(arg, valSAGE, linewidth = width)
-axs[3,1].plot(arg, valCPP, linewidth = width)
 
-axs[3,1].plot(check_arg, checkCPP, 'ko', markersize = 3)                   # построение точек проверки
+axs[3,1].plot(arg, valCPP[:,0], linewidth = width)
+axs[3,1].plot(checkCPP[:,0], checkCPP[:,1], 'ko', markersize = 3)
 
 for i in range(0,len(axs)):
     arg = np.array([AR, BR, CR, DR], dtype = float)							# построение опор

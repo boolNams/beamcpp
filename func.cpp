@@ -17,17 +17,37 @@ double L1(double y){return pow(y,3) - 2.0*pow(y,2) + y;}
 double N2(double y){return -2.0*pow(y,3) + 3.0*pow(y,2);}
 double L2(double y){return pow(y,3) - pow(y,2);}
 
-//МАССИВ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double (*BASIS[4])(double) = {N1, L1, N2, L2};
-
 //ПЕРВЫЕ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
 double dN1(double y){return 6.0*pow(y,2) - 6.0*y;}
 double dL1(double y){return 3.0*pow(y,2) - 4.0*y + 1.0;}
 double dN2(double y){return -6.0*pow(y,2) + 6.0*y;}
 double dL2(double y){return 3.0*pow(y,2) - 2.0*y;}
 
+//ВТОРЫЕ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double d2N1(double y){return 12.0*y - 6.0;}
+double d2L1(double y){return 6.0*y - 4.0;}
+double d2N2(double y){return -12.0*y + 6.0;}
+double d2L2(double y){return 6.0*y - 2.0;}
+
+//ТРЕТЬИ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double d3N1(double y){return 12.0;}
+double d3L1(double y){return 6.0;}
+double d3N2(double y){return -12.0;}
+double d3L2(double y){return 6.0;}
+
+//МАССИВ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double (*BASIS[4])(double) = {N1, L1, N2, L2};
+
 //МАССИВ ПЕРВЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
 double (*dBASIS[4])(double) = {dN1, dL1, dN2, dL2};
+
+//МАССИВ ВТОРЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double (*d2BASIS[4])(double) = {d2N1, d2L1, d2N2, d2L2};
+
+//МАССИВ ТРЕТЬИХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
+double (*d3BASIS[4])(double) = {d3N1, d3L1, d3N2, d3L2};
+
+
 
 Solution::Solution(){}
 
@@ -668,10 +688,8 @@ double Solution::opb(int k, int i)
 	return h*(k1+k2*x[k])*integral[i] + pow(h,2)*k2*integral_y[i];
 }
 
-double Solution::w(double z)
+int Solution::find_k(double z)
 {
-	//НЕОБХОДИМО ВЫЧИСЛИТЬ ПРОГИБ В ТОЧКЕ z
-
 	//ВЫЧИСЛЕНИЕ ИНДЕКСА КОНЕЧНОГО ЭЛЕМЕНТА КОТОРОМУ ПРЕНАДЛЕЖИТ ТОЧКА z
 	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА
 	int kz;
@@ -687,6 +705,16 @@ double Solution::w(double z)
 	//ТУТ УЗЕЛ КОНЕЧНОГО ЭЛЕМЕНТА ПРАВЫЙ
 	if(abs(z - x[N - 1]) < 1.0e-16) kz = M - 1;
 
+	return kz;
+}
+
+double Solution::w(double z)
+{
+	//НЕОБХОДИМО ВЫЧИСЛИТЬ ПРОГИБ В ТОЧКЕ z
+
+	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА С ТОЧКОЙ z
+	int kz = find_k(z);
+
 	//ТОЧКА В ЛОКАЛЬНЫХ КООРДИНАТАХ СООТВЕТСТВУЮЩАЯ ТОЧКЕ z В ГЛОБАЛЬНЫХ
 	double y = (z - x[kz]) / (x[kz + 1] - x[kz]);
 
@@ -698,37 +726,93 @@ double Solution::w(double z)
 	return wz;
 }
 
+double Solution::dw(double z)
+{
+	//НЕОБХОДИМО ВЫЧИСЛИТЬ ПРОИЗВОДНУЮ ПРОГИБА В ТОЧКЕ z
+
+	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА С ТОЧКОЙ z
+	int kz = find_k(z);
+
+	//ТОЧКА В ЛОКАЛЬНЫХ КООРДИНАТАХ СООТВЕТСТВУЮЩАЯ ТОЧКЕ z В ГЛОБАЛЬНЫХ
+	double y = (z - x[kz]) / (x[kz + 1] - x[kz]);
+
+	//ЗНАЧЕНИЕ ПРОИЗВОДНОЙ ПРОГИБА
+	double dwz = 0.0;
+	for(int i = 0; i < 4; ++i) dwz += C[2*kz + i]*(1.0/(x[kz+1] - x[kz]))*dBASIS[i](y);
+	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
+
+	return dwz;
+}
+
+double Solution::d2w(double z)
+{
+	//НЕОБХОДИМО ВЫЧИСЛИТЬ ВТОРУЮ ПРОИЗВОДНУЮ ПРОГИБА В ТОЧКЕ z
+
+	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА С ТОЧКОЙ z
+	int kz = find_k(z);
+
+	//ТОЧКА В ЛОКАЛЬНЫХ КООРДИНАТАХ СООТВЕТСТВУЮЩАЯ ТОЧКЕ z В ГЛОБАЛЬНЫХ
+	double y = (z - x[kz]) / (x[kz + 1] - x[kz]);
+
+	//ЗНАЧЕНИЕ ВТОРОЙ ПРОИЗВОДНОЙ ПРОГИБА
+	double d2wz = 0.0;
+	for(int i = 0; i < 4; ++i) d2wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),2)*d2BASIS[i](y);
+	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
+
+	return d2wz;
+}
+
+double Solution::d3w(double z)
+{
+	//НЕОБХОДИМО ВЫЧИСЛИТЬ ТРЕТЬЮ ПРОИЗВОДНУЮ ПРОГИБА В ТОЧКЕ z
+
+	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА С ТОЧКОЙ z
+	int kz = find_k(z);
+
+	//ТОЧКА В ЛОКАЛЬНЫХ КООРДИНАТАХ СООТВЕТСТВУЮЩАЯ ТОЧКЕ z В ГЛОБАЛЬНЫХ
+	double y = (z - x[kz]) / (x[kz + 1] - x[kz]);
+
+	//ЗНАЧЕНИЕ ВТОРОЙ ПРОИЗВОДНОЙ ПРОГИБА
+	double d3wz = 0.0;
+	for(int i = 0; i < 4; ++i) d3wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),3)*d3BASIS[i](y);
+	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
+
+	return d3wz;
+}
+
+
 void Solution::fill_txt()
 {
 	//НЕОБХОДИМО ЗАПОЛНИТЬ graph_val.txt ФАЙЛ ЗНАЧЕНИЯМИ
-	ofstream valtxt;
+	ofstream val;
 
 	//ФАЙЛ ДЛЯ СЧИТЫВАНИЯ ТОЧЕК В КОТОРЫХ НЕОБХОДИМО ПРОИЗВЕСТИ ВЫЧИСЛЕНИЕ graph_arg.txt
-	ifstream argtxt;
+	ifstream argw;
 
 	//ОТКРЫТИЕ graph_arg.txt ФАЙЛА ДЛЯ ЧТЕНИЯ
-    argtxt.open("graph_arg.txt");
+    argw.open("graph_arg.txt");
 
     //КОЛИЧЕСТВО ТОЧЕК
     int Nz;
-    argtxt >> Nz;
+    argw >> Nz;
 
     //МАССИВ ТОЧЕК
     double *z = new double[Nz];
-    for(int i = 0; i < Nz; ++i) argtxt >> z[i];
+    for(int i = 0; i < Nz; ++i) argw >> z[i];
 
     //ЗАКРЫТИЕ graph_arg.txt ФАЙЛА
-    argtxt.close();
+    argw.close();
 
 	//ОТКРЫТИЕ ФАЙЛА graph_val.txt ДЛЯ ЗАПИСИ
-	valtxt.open("graph_val.txt");
+	val.open("graph_val.txt");
 	for(int i = 0; i < Nz; ++i)
 	{
-		valtxt << w(z[i]) << endl;
+		val << w(z[i]) << " " << dw(z[i]) << " " 
+		<< d2w(z[i]) << " " << d3w(z[i]) << endl;
 	}
 
 	//ЗАКРЫТИЕ graph_val.txt ФАЙЛА
-	valtxt.close(); 
+	val.close(); 
 
    	//ЧИСТКА ПАМЯТИ 
    	delete z;
@@ -737,18 +821,21 @@ void Solution::fill_txt()
 void Solution::check_txt()
 {
 	//ЗАПОЛНЯЕТ ФАЙЛ check.txt ДЛЯ ПОСТРОЕНИЯ ТОЧЕК НА ГРАФИКЕ
-	//ЗНАЧЕНИЯ ПРОГИБА В УЗЛАХ
+	//ЗНАЧЕНИЯ ПРОГИБА И УГЛОВ В УЗЛАХ
 
 	//ФАЙЛ ДЛЯ ЗАПОЛНЕНИЯ
-	ofstream valtxt;
+	ofstream check;
 
 	//ОТКРЫТИЕ ФАЙЛА
-	valtxt.open("check.txt");
+	check.open("check.txt");
 
-	for(int i = 0; i < N; ++i) valtxt << C[2*i] << endl;
+	for(int i = 0; i < N; ++i)
+	{
+		check << x[i] << " " << C[2*i] << " " << C[2*i + 1] << endl;
+	}
 
 	//ЗАКРЫТИЕ ФАЙЛА
-	valtxt.close();
+	check.close();
 }
 
 void Solution::fill_Rnv()
