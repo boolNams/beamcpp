@@ -3,15 +3,17 @@ using namespace std;
 
 extern ofstream logfile;
 
+void load_params();
+
 namespace CONST
 {
-    extern const double M;
-    extern const double P;
-    extern const double k;
-    extern const double qA;
-    extern const double qB;
-    extern const double E;
-    extern const double J;
+    extern double M;
+    extern double P;
+    extern double k;
+    extern double qA;
+    extern double qB;
+    extern double E;
+    extern double J;
 }
 
 extern const double L;
@@ -44,6 +46,7 @@ class Solution
     //Ridx МАССИВ ИНДЕКСОВ ОПОР В СЕТКЕ
     //Csol ВЕКТОР РЕШЕНИЯ СИСТЕМЫ
     //C ВЕКТОР РАЗЛОЖЕНИЯ ПО БАЗИСУ
+    //Rnv ВЕКТОР НЕВЯЗКИ ПОЛНОЙ МАТРИЦЫ
 
     int N;
     int M;
@@ -64,6 +67,7 @@ class Solution
     double *Bsol;
     double *Csol;
     double *C;
+    double *Rnv;
 
     double a[16];
     double c[16];
@@ -86,6 +90,7 @@ public:
     //info_Bsol ВНОСИТ ИНФОРМАЦИЮ О ВЕКТОРЕ Bsol
     //info_Csol ВНОСИТ ИНФОРМАЦИЮ О ВЕКТОРЕ Csol
     //nv_info ВНОСИТ ИНФОРМАЦИЮ О НОРМЕ ВЕКТОРА НЕВЯЗКИ
+    //info_Rnv ВНОСИТ ИНФОРМАЦИЮ О ВЕКТОРЕ Rnv
 
     void info_base();
     void info_mesh();
@@ -98,6 +103,7 @@ public:
     void info_Csol();
     void info_C();
     void info_nv();
+    void info_Rnv();
 
     //create_mesh ПОСТРОЕНИЕ СЕТКИ
     //fill_A ЗАПОЛНЕНИЕ МАТРИЦЫ A
@@ -109,6 +115,8 @@ public:
     //fill_Bsol ЗАПОЛНЕНИЕ ВЕКТОРА Bsol
     //solve РЕШАЕТ СИСТЕМУ УРАВНЕНИЙ
     //fill_txt ЗАПОЛНЯЕТ ФАЙЛ graph_val ЗНАЧЕНИЯМИ
+    //check_txt ЗАПОЛНЯЕТ ФАЙЛ check.txt ТОЧКАМИ ПРОВЕРКИ
+    //fill_Rnv ЗАПОЛНЯЕТ ВЕКТОР Rnv
 
     void create_mesh();
     void fill_A();
@@ -122,6 +130,8 @@ public:
     void set_zeros_b();
     void solve();
     void fill_txt();
+    void check_txt();
+    void fill_Rnv();
 
     //min_h МИНИМАЛЬНАЯ ДЛИНА В СЕТКЕ
     //opa БИЛИНЕЙНЫЙ ОПЕРАТОР НА ФУНКЦИЯХ С ИНДЕКСАМИ i И j НА ЭЛЕМЕНТЕ С ИНДЕКСОМ k

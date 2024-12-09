@@ -58,6 +58,7 @@ Solution::Solution(int N)
     this->Asol = new double[N3*N3];
     this->Bsol = new double[N3];
     this->Csol = new double[N3];
+    this->Rnv = new double[N2];
 
     //ЗАПОЛНЕНИЕ МАТРИЦЫ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ
     fill_c();
@@ -107,8 +108,17 @@ Solution::Solution(int N)
     //ВЫВОД НОРМЫ НЕВЯЗКИ
     info_nv();
 
+    //ВЫЧИСЛЕНИЕ ВЕКТОРА НЕВЯЗКИ МАТРИЦЫ ЖЕСТКОСТИ
+    fill_Rnv();
+
+    //ВЫВОД ДАННЫХ О ВЕКТОРЕ НЕВЯЗКИ МАТРИЦЫ ЖЕСТКОСТИ
+    info_Rnv();
+
     //ЗАПОЛНЕНИЕ TXT ФАЙЛА ДЛЯ ПОСТРОЕНИЯ ГРАФИКИ
     fill_txt();
+
+    //ЗАПОЛНЕНИЕ TXT ФАЙЛА ДЛЯ ПОСТРОЕНИЯ ТОЧЕК ПРОВЕРКИ ПРОГИБА И УГЛОВ
+    check_txt();
 
     //ЗАКРЫТИЕ LOG ФАЙЛА
     logfile.close();
@@ -129,7 +139,14 @@ Solution::~Solution()
 void Solution::info_base()
 {
 	logfile << "### ДАННЫЕ О РЕШЕНИИ ЗАДАЧИ ###" << endl;
-	logfile << "МИНИМАЛЬНО ДОПУСТИМОЕ ЧИСЛО УЗЛОВ | N_min = 7" << endl;
+	logfile << "ЗАДАННАЯ СИЛА | P = " << CONST::P << endl;
+	logfile << "ЗАДАННЫЙ МОМЕНТ | M = " << CONST::M << endl;
+	logfile << "ЖЕСТКОСТЬ ПРУЖИНЫ | k = " << CONST::k << endl;
+	logfile << "РАСПРЕДЕЛЕННАЯ В ТОЧКЕ A | qA = " << CONST::qA << endl;
+	logfile << "РАСПРЕДЕЛЕННАЯ В ТОЧКЕ B | qB = " << CONST::qA << endl;
+	logfile << "МОДУЛЬ ЮНГА | E = " << CONST::E << endl;
+	logfile << "МОМЕНТ ИНЕРЦИИ | J = " << CONST::J << endl;
+	logfile << "МИНИМАЛЬНО ДОПУСТИМОЕ ЧИСЛО УЗЛОВ | N_min = 10" << endl;
 	logfile << "ЧИСЛО УЗЛОВ | N = " << N << endl;
 	logfile << "ЧИСЛО КОНЕЧНЫХ ЭЛЕМЕНТОВ | M = " << M << endl;
 }
@@ -140,10 +157,10 @@ void Solution::info_mesh()
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С ПРУЖИНОЙ | kk = " << kk + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С МОМЕНТОМ | km = " << km + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА С СИЛОЙ | kp = " << kp + 1 << endl;
-	logfile << "НОМЕР УЗЛА ПЕРВОЙ ОПОРЫ | Ridx = " << Ridx[0] + 1 << endl;
-	logfile << "НОМЕР УЗЛА ВТОРОЙ ОПОРЫ | Ridx = " << Ridx[1] + 1 << endl;
-	logfile << "НОМЕР УЗЛА ТРЕТЬЕЙ ОПОРЫ | Ridx = " << Ridx[2] + 1 << endl;
-	logfile << "НОМЕР УЗЛА ЧЕТВЕРТОЙ ОПОРЫ | Ridx = " << Ridx[3] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ПЕРВОЙ ОПОРЫ | No1 = " << Ridx[0] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ВТОРОЙ ОПОРЫ | No2 = " << Ridx[1] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ТРЕТЬЕЙ ОПОРЫ | No3 = " << Ridx[2] + 1 << endl;
+	logfile << "НОМЕР УЗЛА ЧЕТВЕРТОЙ ОПОРЫ | No4 = " << Ridx[3] + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ НАЧИНАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq1 = " << kq1 + 1 << endl;
 	logfile << "НОМЕР КОНЕЧНОГО ЭЛЕМЕНТА В КОТОРОМ ЗАКАНЧИВАЕТСЯ РАСПРЕДЕЛЕННАЯ НАГРУЗКА | kq2 = " << kq2 + 1 << endl;
 
@@ -207,6 +224,12 @@ void Solution::info_nv()
 	logfile << nv() << endl;
 }
 
+void Solution::info_Rnv()
+{
+	logfile << "ВЕКТОР НЕВЯЗКИ МАТРИЦЫ ЖЕТСКОСТИ Rnv::" << endl;
+	for(int i = 0; i < N2; ++i) logfile << Rnv[i] << endl;
+}
+
 double Solution::min_h()
 {
 	double min_h = L;
@@ -266,6 +289,7 @@ void Solution::create_mesh()
 	//СТРОИТСЯ РАВНОМЕРНАЯ СЕТКА, ВКЛЮЧАЮЩАЯ В СЕБЯ N-6 УЗЛОВ (БЕЗ 2 УЗЛОВ РАСПР. НАГР. И 4 УЗЛОВ ОПОРЫ)
 	//УЗЕЛ НА ПРАВОМ ТОРЦЕ ЭТО УЗЕЛ ОДНОЙ ИЗ ОПОР
 
+	/*
 	double h = L / (N - 6);
     for(int i = 0; i < N - 6; ++i) x[i] = i*h;
     x[N-6] = xR1;
@@ -274,7 +298,10 @@ void Solution::create_mesh()
 	x[N-3] = xR4;
    	x[N-2] = xq1;
    	x[N-1] = xq2;
+	*/
 
+	double h = L / (N - 1);
+	for(int i = 0; i < N; ++i) x[i] = i * h;
    	//СОРТИРОВКА ПУЗЫРЬКОМ
    	double tmp;
    	for(int i = 0; i < N - 1; ++i)
@@ -529,7 +556,7 @@ void Solution::solve()
 
 	//ОСНОВНОЙ ЦИКЛ РЕШЕНИЯ
 	double ptmp;
-	for(size_t  k = 0; k < N3 + 20; ++k)
+	for(size_t  k = 0; k < N3 + 30; ++k)
 	{
 		ptmp = 0.0;
 		for(size_t i = 0; i < N3; ++i)
@@ -614,7 +641,7 @@ double Solution::opa(int k, int i, int j)
 		double y = (xk - x[k])/(x[k+1] - x[k]);
 
 		//ДОБАВЛЯЕМ К ПРОИЗВЕДЕНИЮ ЧЛЕН ОТВЕЧАЮЩИЙ ЗА ПРУЖИНУ
-		return dot * c[i*4 + j] + k*BASIS[i](y)*BASIS[j](y);
+		return dot * c[i*4 + j] + CONST::k*BASIS[i](y)*BASIS[j](y);
 	}
 
 	//ИНАЧЕ ТОЛЬКО ПРОИЗВЕДЕНИЕ
@@ -705,4 +732,40 @@ void Solution::fill_txt()
 
    	//ЧИСТКА ПАМЯТИ 
    	delete z;
+}
+
+void Solution::check_txt()
+{
+	//ЗАПОЛНЯЕТ ФАЙЛ check.txt ДЛЯ ПОСТРОЕНИЯ ТОЧЕК НА ГРАФИКЕ
+	//ЗНАЧЕНИЯ ПРОГИБА В УЗЛАХ
+
+	//ФАЙЛ ДЛЯ ЗАПОЛНЕНИЯ
+	ofstream valtxt;
+
+	//ОТКРЫТИЕ ФАЙЛА
+	valtxt.open("check.txt");
+
+	for(int i = 0; i < N; ++i) valtxt << C[2*i] << endl;
+
+	//ЗАКРЫТИЕ ФАЙЛА
+	valtxt.close();
+}
+
+void Solution::fill_Rnv()
+{
+	//НЕОБХОДИМО ЗАПОЛНИТЬ ВЕКТОР Rnv НЕВЯЗКИ ПОЛНОЙ СИСТЕМЫ
+
+	//i-АЯ КОМПОНЕНТА A*C
+	double aci;
+
+	//СЧИТАЕМ ПРОИЗВЕДЕНИЕ МАТРИЦЫ НА ВЕКТОР С И ВЫЧИТАЕМ B
+	for(int i = 0; i < N2; ++i)
+	{
+		aci = 0.0;
+		for(int j = 0; j < N2; ++j) aci += A[i*N2 + j] * C[j];
+
+		//i-АЯ КОМПОНЕНТА НЕВЯЗКИ
+		Rnv[i] = aci - B[i];
+	}
+
 }
