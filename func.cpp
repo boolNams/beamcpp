@@ -12,40 +12,40 @@ using namespace std;
 ofstream logfile;
 
 //БАЗИСНЫЕ ФУНКЦИИ НА [0,1]
-double N1(double y){return 2.0*pow(y,3) - 3.0*pow(y,2) + 1.0;}
-double L1(double y){return pow(y,3) - 2.0*pow(y,2) + y;}
-double N2(double y){return -2.0*pow(y,3) + 3.0*pow(y,2);}
-double L2(double y){return pow(y,3) - pow(y,2);}
+double N1(double y, double h){return 2.0*pow(y,3) - 3.0*pow(y,2) + 1.0;}
+double L1(double y, double h){return h*(pow(y,3) - 2.0*pow(y,2) + y);}
+double N2(double y, double h){return -2.0*pow(y,3) + 3.0*pow(y,2);}
+double L2(double y, double h){return h*(pow(y,3) - pow(y,2));}
 
 //ПЕРВЫЕ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double dN1(double y){return 6.0*pow(y,2) - 6.0*y;}
-double dL1(double y){return 3.0*pow(y,2) - 4.0*y + 1.0;}
-double dN2(double y){return -6.0*pow(y,2) + 6.0*y;}
-double dL2(double y){return 3.0*pow(y,2) - 2.0*y;}
+double dN1(double y, double h){return 6.0*pow(y,2) - 6.0*y;}
+double dL1(double y, double h){return h*(3.0*pow(y,2) - 4.0*y + 1.0);}
+double dN2(double y, double h){return -6.0*pow(y,2) + 6.0*y;}
+double dL2(double y, double h){return h*(3.0*pow(y,2) - 2.0*y);}
 
 //ВТОРЫЕ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double d2N1(double y){return 12.0*y - 6.0;}
-double d2L1(double y){return 6.0*y - 4.0;}
-double d2N2(double y){return -12.0*y + 6.0;}
-double d2L2(double y){return 6.0*y - 2.0;}
+double d2N1(double y, double h){return 12.0*y - 6.0;}
+double d2L1(double y, double h){return h*(6.0*y - 4.0);}
+double d2N2(double y, double h){return -12.0*y + 6.0;}
+double d2L2(double y, double h){return h*(6.0*y - 2.0);}
 
 //ТРЕТЬИ ПРОИЗВОДНЫЕ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double d3N1(double y){return 12.0;}
-double d3L1(double y){return 6.0;}
-double d3N2(double y){return -12.0;}
-double d3L2(double y){return 6.0;}
+double d3N1(double y, double h){return 12.0;}
+double d3L1(double y, double h){return h*6.0;}
+double d3N2(double y, double h){return -12.0;}
+double d3L2(double y, double h){return h*6.0;}
 
 //МАССИВ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double (*BASIS[4])(double) = {N1, L1, N2, L2};
+double (*BASIS[4])(double, double) = {N1, L1, N2, L2};
 
 //МАССИВ ПЕРВЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double (*dBASIS[4])(double) = {dN1, dL1, dN2, dL2};
+double (*dBASIS[4])(double, double) = {dN1, dL1, dN2, dL2};
 
 //МАССИВ ВТОРЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double (*d2BASIS[4])(double) = {d2N1, d2L1, d2N2, d2L2};
+double (*d2BASIS[4])(double, double) = {d2N1, d2L1, d2N2, d2L2};
 
 //МАССИВ ТРЕТЬИХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ НА [0,1]
-double (*d3BASIS[4])(double) = {d3N1, d3L1, d3N2, d3L2};
+double (*d3BASIS[4])(double, double) = {d3N1, d3L1, d3N2, d3L2};
 
 
 
@@ -79,9 +79,6 @@ Solution::Solution(int N)
     this->Bsol = new double[N3];
     this->Csol = new double[N3];
     this->Rnv = new double[N2];
-
-    //ЗАПОЛНЕНИЕ МАТРИЦЫ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ
-    fill_c();
 
     //ВЫВОД ПЕРВОНАЧАЛЬНЫХ ДАННЫХ
     info_base();
@@ -303,30 +300,15 @@ void Solution::info_Csol()
 	for(int i = 0; i < N3; ++i) logfile << Csol[i] << endl;
 }
 
-void Solution::create_mesh()
-{	
-	//МИНИМАЛЬНОЕ ЧИСЛО УЗЛОВ 7 (2 УЗЛА РАСПРЕДЕЛЕННОЙ НАГРУЗКИ, 4 ОПОРЫ, 1 УЗЕЛ НА ЛЕВОМ ТОРЦЕ)
-	//СТРОИТСЯ РАВНОМЕРНАЯ СЕТКА, ВКЛЮЧАЮЩАЯ В СЕБЯ N-6 УЗЛОВ (БЕЗ 2 УЗЛОВ РАСПР. НАГР. И 4 УЗЛОВ ОПОРЫ)
-	//УЗЕЛ НА ПРАВОМ ТОРЦЕ ЭТО УЗЕЛ ОДНОЙ ИЗ ОПОР
+void Solution::sort(int idx)
+{
+	//ИДЕТ СОРТИРОВКА ДО ЭЛЕМЕНТА С НОМЕРОМ idx
 
-	/*
-	double h = L / (N - 6);
-    for(int i = 0; i < N - 6; ++i) x[i] = i*h;
-    x[N-6] = xR1;
-   	x[N-5] = xR2;
-    x[N-4] = xR3;
-	x[N-3] = xR4;
-   	x[N-2] = xq1;
-   	x[N-1] = xq2;
-	*/
-
-	double h = L / (N - 1);
-	for(int i = 0; i < N; ++i) x[i] = i * h;
-   	//СОРТИРОВКА ПУЗЫРЬКОМ
-   	double tmp;
-   	for(int i = 0; i < N - 1; ++i)
+	//ПУЗЫРЬКОВАЯ СОРТИРОВКА
+	double tmp;
+   	for(int i = 0; i < idx - 1; ++i)
    	{
-   		for(int j = 0; j < N - 1 - i; ++j)
+   		for(int j = 0; j < idx - 1 - i; ++j)
    		{
    			if(x[j] > x[j+1])
    			{
@@ -336,6 +318,54 @@ void Solution::create_mesh()
    			}
    		}
    	}
+}
+
+void Solution::create_mesh()
+{	
+	//МИНИМАЛЬНОЕ ЧИСЛО УЗЛОВ 10 (2 УЗЛА РАСПРЕДЕЛЕННОЙ НАГРУЗКИ, 4 ОПОРЫ, 1 УЗЕЛ НА ЛЕВОМ ТОРЦЕ, 1 ПРУЖИНА, 1 СИЛА, 1 МОМЕНТ)
+	//СТРОИТСЯ РАВНОМЕРНАЯ СЕТКА, ВКЛЮЧАЮЩАЯ В СЕБЯ N-10 УЗЛОВ БЕЗ КРАЕВЫХ
+	//УЗЕЛ НА ПРАВОМ ТОРЦЕ ЭТО УЗЕЛ ОДНОЙ ИЗ ОПОР
+
+    x[0] = 0.0;
+    x[1] = xk;
+   	x[2] = xP;
+    x[3] = xM;
+    x[4] = xR1;
+   	x[5] = xR2;
+    x[6] = xR3;
+	x[7] = xR4;
+   	x[8] = xq1;
+   	x[9] = xq2;
+
+   	//КАЖДУЮ СЛЕДУЮЩУЮ ТОЧКУ КЛАДЕМ В СЕРЕДИНУ САМОГО БОЛЬШОГО КОНЕЧНОГО ЭЛЕМЕНТА
+   	for(int i = 0; i < N - 10; ++i)
+   	{
+   		//ИНДЕКС КУДА НЕОБХОДИМО ПОЛОЖИТЬ ТОЧКУ
+   		int idx = 10 + i;
+
+   		//СОРТРОВКА УЖЕ ПОСТАВЛЕННЫХ УЗЛОВ
+   		sort(idx);
+
+   		//ДЛИНА САМОГО БОЛЬШОГО ОТРЕЗКА
+   		double h_max = 0;
+   		//ИНДЕКС ЛЕВОГО УЗЛА САМОГО БОЛЬШОГО ОТРЕЗКА
+   		int idx_max = 0; 
+   		//ПОИСК САМОГО БОЛЬШОГО ОТРЕЗКА
+   		for(int j = 0; j < idx - 1; ++j)
+   		{
+   			if(x[j+1] - x[j] > h_max)
+   			{
+   				h_max = x[j+1] - x[j];
+   				idx_max = j;
+   			}
+   		}
+
+   		//КЛАДЕМ НОВУЮ ТОЧКУ
+   		x[idx] = x[idx_max] + 0.5*h_max;
+   	}
+
+   	//СОРТИРУЕМ ВСЮ ПОСТРОЕННУЮ СЕТКУ
+   	sort(N);
 
    	//УСТРАНЕНИЕ "СЛИПАНИЯ" ТОЧЕК 
    	for(int i = 1; i < N - 1; ++i)
@@ -377,15 +407,15 @@ void Solution::create_mesh()
    	}
 }
 
-void Solution::fill_c()
+void Solution::fill_c(double h)
 {
 	//МАТРИЦА с ИСПОЛЬЗУЕТСЯ В МЕТОДЕ op ДЛЯ ВЫЧИСЛЕНИЯ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ
 	//ДАННЫЙ МЕТОД ЗАПОЛНЯЕТ МАТРИЦУ с ПОЛУЧЕННЫМИ ЗНАЧЕНИЯМИ ИЗ SAGE ПРОГРАММЫ
 
-	c[0]  =  12.0; c[1]  =  6.0; c[2]  = -12.0; c[3]  =  6.0;
-	c[4]  =   6.0; c[5]  =  4.0; c[6]  =  -6.0; c[7]  =  2.0;
-	c[8]  = -12.0; c[9]  = -6.0; c[10] =  12.0; c[11] = -6.0;
-	c[12] =   6.0; c[13] =  2.0; c[14] =  -6.0; c[15] =  4.0;
+	c[0]  =  12.0;   c[1]  =  h*6.0;        c[2]  =  -12.0;   c[3]  = h*6.0;
+	c[4]  =   h*6.0; c[5]  =  pow(h,2)*4.0; c[6]  =  -h*6.0;  c[7]  = pow(h,2)*2.0;
+	c[8]  = -12.0;   c[9]  = -h*6.0;        c[10] =  12.0;    c[11] = -h*6.0;
+	c[12] =   h*6.0; c[13] =  pow(h,2)*2.0; c[14] =  -h*6.0;  c[15] = pow(h,2)*4.0;
 }
 
 void Solution::fill_A()
@@ -456,13 +486,13 @@ void Solution::fill_B()
 		//ДОБАВЛЯЕМ МОМЕНТ ЕСЛИ ОН ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
 		if(k == km)
 		{
-			for(int i = 0; i < 4; ++i) b[i] -= (1.0/(x[k+1] - x[k]))*CONST::M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]));
+			for(int i = 0; i < 4; ++i) b[i] -= (1.0/(x[k+1] - x[k]))*CONST::M*dBASIS[i]((xM - x[k])/(x[k+1] - x[k]), (x[k+1] - x[k]));
 		}
 
 		//ДОБАВЛЯЕМ СИЛУ ЕСЛИ ОНА ЕСТЬ НА КОНЕЧНОМ ЭЛЕМЕНТЕ
 		if(k == kp)
 		{
-			for(int i = 0; i < 4; ++i) b[i] += CONST::P*BASIS[i]((xP - x[k])/(x[k+1] - x[k]));
+			for(int i = 0; i < 4; ++i) b[i] += CONST::P*BASIS[i]((xP - x[k])/(x[k+1] - x[k]), (x[k+1] - x[k]));
 		}
 
 		//ВЫЧИСЛЕН ВЕКТОР КОНЕЧНОГО ЭЛЕМЕНТА
@@ -654,6 +684,9 @@ double Solution::opa(int k, int i, int j)
 	//ДОМНОЖАЕМ ПРОИЗВЕДЕНИЕ ФУНКЦИЙ НА dot
 	double dot = CONST::E * CONST::J / pow(x[k+1] - x[k], 3);
 
+	//ЗАПОЛНЕНИЕ МАТРИЦЫ ПРОИЗВЕДЕНИЯ ВТОРЫХ ПРОИЗВОДНЫХ БАЗИСНЫХ ФУНКЦИЙ
+	fill_c(x[k+1] - x[k]);
+
 	//ПРИБАВЛЯЕМ СЛАГАЕМОЕ ОТ ПРУЖИНЫ ЕСЛИ РАБОТАЕМ НА КОНЕЧНОМ ЭЛЕМЕНТЕ С ПРУЖИНОЙ
 	if(k == kk)
 	{
@@ -661,7 +694,7 @@ double Solution::opa(int k, int i, int j)
 		double y = (xk - x[k])/(x[k+1] - x[k]);
 
 		//ДОБАВЛЯЕМ К ПРОИЗВЕДЕНИЮ ЧЛЕН ОТВЕЧАЮЩИЙ ЗА ПРУЖИНУ
-		return dot * c[i*4 + j] + CONST::k*BASIS[i](y)*BASIS[j](y);
+		return dot * c[i*4 + j] + CONST::k*BASIS[i](y,x[k+1] - x[k])*BASIS[j](y,x[k+1] - x[k]);
 	}
 
 	//ИНАЧЕ ТОЛЬКО ПРОИЗВЕДЕНИЕ
@@ -673,16 +706,16 @@ double Solution::opb(int k, int i)
 {
 	//СЧИТАЕТ ИНТЕГРАЛ ОТ РАСПРЕДЛЕННОЙ НАГРУЗКИ
 
+	//ШАГ
+	double h = x[k+1] - x[k];
+
 	//МАССИВЫ ИНТЕГРАЛОВ ОТ БАЗИСНЫХ ФУНКЦИЙ И Y*БАЗИСНЫЕ ФУНКЦИИ НА [0,1]
-	double integral[4] = {0.5, 0.08333333, 0.5, -0.08333333};
-	double integral_y[4] = {0.15, 0.03333333, 0.35, -0.05};
+	double integral[4] = {0.5, h*0.08333333, 0.5, -h*0.08333333};
+	double integral_y[4] = {0.15, h*0.03333333, 0.35, -h*0.05};
 
 	//КОНСТАНТЫ РАСПРЕДЕЛЕННОЙ НАГРУЗКИ ДЛЯ УПРОЩЕНИЯ ЗАПИСИ ВЫРАЖЕНИЯ q(x) = k1 + k2*x
 	double k2 = (CONST::qB - CONST::qA)/(xq2 - xq1);
 	double k1 = CONST::qA - xq1*k2;
-
-	//ШАГ
-	double h = x[k+1] - x[k];
 
 	//ИНТЕГРАЛ ВЫРАЖЕННЫЙ ЧЕРЕЗ ЛОКАЛЬНЫЕ КООРДИНАТЫ
 	return h*(k1+k2*x[k])*integral[i] + pow(h,2)*k2*integral_y[i];
@@ -693,6 +726,7 @@ int Solution::find_k(double z)
 	//ВЫЧИСЛЕНИЕ ИНДЕКСА КОНЕЧНОГО ЭЛЕМЕНТА КОТОРОМУ ПРЕНАДЛЕЖИТ ТОЧКА z
 	//ИНДЕКС КОНЕЧНОГО ЭЛЕМЕНТА
 	int kz;
+	logfile << z << endl;
 
 	//ЕСЛИ z ПОПАЛ НА УЗЕЛ ТО БУДЕМ ПОЛАГАТЬ ЧТО z ПРЕНАДЛЕЖИТ  ЭЛЕМЕНТУ ЛЕВЫЙ УЗЕЛ КОТОРОГО ДАННЫЙ
 	//ЦИКЛ ПО КОНЕЧНЫМ ЭЛЕМЕНТАМ
@@ -720,7 +754,7 @@ double Solution::w(double z)
 
 	//ЗНАЧЕНИЕ ПРОГИБА
 	double wz = 0.0;
-	for(int i = 0; i < 4; ++i) wz += C[2*kz + i]*BASIS[i](y);
+	for(int i = 0; i < 4; ++i) wz += C[2*kz + i]*BASIS[i](y, x[kz+1] - x[kz]);
 	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
 
 	return wz;
@@ -738,7 +772,7 @@ double Solution::dw(double z)
 
 	//ЗНАЧЕНИЕ ПРОИЗВОДНОЙ ПРОГИБА
 	double dwz = 0.0;
-	for(int i = 0; i < 4; ++i) dwz += C[2*kz + i]*(1.0/(x[kz+1] - x[kz]))*dBASIS[i](y);
+	for(int i = 0; i < 4; ++i) dwz += C[2*kz + i]*(1.0/(x[kz+1] - x[kz]))*dBASIS[i](y, x[kz+1] - x[kz]);
 	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
 
 	return dwz;
@@ -756,7 +790,7 @@ double Solution::d2w(double z)
 
 	//ЗНАЧЕНИЕ ВТОРОЙ ПРОИЗВОДНОЙ ПРОГИБА
 	double d2wz = 0.0;
-	for(int i = 0; i < 4; ++i) d2wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),2)*d2BASIS[i](y);
+	for(int i = 0; i < 4; ++i) d2wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),2)*d2BASIS[i](y, x[kz+1] - x[kz]);
 	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
 
 	return d2wz;
@@ -774,7 +808,7 @@ double Solution::d3w(double z)
 
 	//ЗНАЧЕНИЕ ВТОРОЙ ПРОИЗВОДНОЙ ПРОГИБА
 	double d3wz = 0.0;
-	for(int i = 0; i < 4; ++i) d3wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),3)*d3BASIS[i](y);
+	for(int i = 0; i < 4; ++i) d3wz += C[2*kz + i]*pow((1.0/(x[kz+1] - x[kz])),3)*d3BASIS[i](y, x[kz+1] - x[kz]);
 	//ВЫЧИСЛЕНО ЗНАЧЕНИЕ ПРОГИБА
 
 	return d3wz;
@@ -805,6 +839,7 @@ void Solution::fill_txt()
 
 	//ОТКРЫТИЕ ФАЙЛА graph_val.txt ДЛЯ ЗАПИСИ
 	val.open("graph_val.txt");
+	
 	for(int i = 0; i < Nz; ++i)
 	{
 		val << w(z[i]) << " " << dw(z[i]) << " " 

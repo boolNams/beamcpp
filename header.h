@@ -106,6 +106,7 @@ public:
     void info_Rnv();
 
     //create_mesh ПОСТРОЕНИЕ СЕТКИ
+    //sort СОРТИРУЕТ УЗЛЫ СЕТКИ ДО idx
     //fill_A ЗАПОЛНЕНИЕ МАТРИЦЫ A
     //fill_B ЗАПОЛНЕНИЕ МАТРИЦЫ B
     //fill_c ЗАПОЛНЕНИЕ МАТРИЦЫ с
@@ -119,9 +120,10 @@ public:
     //fill_Rnv ЗАПОЛНЯЕТ ВЕКТОР Rnv
 
     void create_mesh();
+    void sort(int idx);
     void fill_A();
     void fill_B();
-    void fill_c();
+    void fill_c(double h);
     void fill_Asol();
     void fill_Bsol();
     void set_zeros_A();

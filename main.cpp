@@ -31,7 +31,7 @@ int main(void)
     load_params();
 
     //КОЛИЧЕСТВО УЗЛОВ
-    int N = 26;
+    int N = 20;
 
     Solution sol(N);
 

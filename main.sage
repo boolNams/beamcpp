@@ -186,12 +186,14 @@ for i in range(0,len(axs)):
     axs[i,0].plot(arg,valSAGE, 'yo', label = "k")
     axs[i,1].plot(arg, valSAGE, 'yo', label = "k")
 
-    '''
-    arg = np.array([Aq, Bq], dtype = float)									        # построение распределенной нагрузки (только на SAGE)
-    valSAGE = np.array([qA, qB], dtype = float)
-    axs[i,0].plot(arg,valSAGE, color = 'g', alpha = 0.3, label = "q")
-    axs[i,0].fill_between(arg, valSAGE,color = 'g', alpha = 0.3)
-    '''
+    
+    argq = np.array([Aq, Bq], dtype = float)									        # построение распределенной нагрузки (только на SAGE)
+    valq = np.array([0.0, 0.0], dtype = float)
+    axs[i,0].plot(argq,valq, color = 'g', alpha = 0.3, label = "q")
+    
+    argq = np.array([Aq, Bq], dtype = float)                                         # построение распределенной нагрузки (только на SAGE)
+    valq = np.array([0.0, 0.0], dtype = float)
+    axs[i,1].plot(argq,valq, color = 'g', alpha = 0.3,label = "q")
 
     axs[i,0].grid()
     axs[i,1].grid()
