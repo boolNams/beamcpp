@@ -118,6 +118,7 @@ public:
     //fill_txt ЗАПОЛНЯЕТ ФАЙЛ graph_val ЗНАЧЕНИЯМИ
     //check_txt ЗАПОЛНЯЕТ ФАЙЛ check.txt ТОЧКАМИ ПРОВЕРКИ
     //fill_Rnv ЗАПОЛНЯЕТ ВЕКТОР Rnv
+    //Rtxt ЗАПОЛНЕНЯЕТ TXT ФАЙЛ УСИЛИЯМИ R
 
     void create_mesh();
     void sort(int idx);
@@ -134,6 +135,7 @@ public:
     void fill_txt();
     void check_txt();
     void fill_Rnv();
+    void Rtxt();
 
     //min_h МИНИМАЛЬНАЯ ДЛИНА В СЕТКЕ
     //opa БИЛИНЕЙНЫЙ ОПЕРАТОР НА ФУНКЦИЯХ С ИНДЕКСАМИ i И j НА ЭЛЕМЕНТЕ С ИНДЕКСОМ k

@@ -106,6 +106,14 @@ import numpy as np
 #КОЛИЧЕСТВО ТОЧЕК НА ГРАФИКЕ
 N = 500
 
+#ФАЙЛ ДЛЯ ЗАПИСИ УСИЛИЙ ВЫЧИСЛЕННЫХ SAGE И С++
+with open("R.txt",'w') as txt:
+    txt.write("SAGE R:\n")
+    txt.write(f"{RA.numerical_approx()}\n")
+    txt.write(f"{RB.numerical_approx()}\n")
+    txt.write(f"{RC.numerical_approx()}\n") 
+    txt.write(f"{RD.numerical_approx()}\n")
+
 #НЕОБХОДИМО ВЫЧИСЛИТЬ ЗНАЧЕНИЯ В ДАННЫХ ТОЧКАХ
 arg = np.linspace(0,25.0,N)
 

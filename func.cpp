@@ -137,6 +137,9 @@ Solution::Solution(int N)
     //ЗАПОЛНЕНИЕ TXT ФАЙЛА ДЛЯ ПОСТРОЕНИЯ ТОЧЕК ПРОВЕРКИ ПРОГИБА И УГЛОВ
     check_txt();
 
+    //ЗАПОЛНЕНИЕ TXT ФАЙЛА УСИЛИЯМИ R
+    Rtxt();
+
     //ЗАКРЫТИЕ LOG ФАЙЛА
     logfile.close();
 }
@@ -888,5 +891,27 @@ void Solution::fill_Rnv()
 		//i-АЯ КОМПОНЕНТА НЕВЯЗКИ
 		Rnv[i] = aci - B[i];
 	}
+
+}
+
+void Solution::Rtxt()
+{
+	//ЗАПОЛНЕНИЕ ФАЙЛА "R.txt" ЗНАЧЕНИЯМИ УСИЛИЙ
+
+	//ФАЙЛ ДЛЯ ЗАПОЛНЕНИЯ
+	ofstream file;
+
+	//ОТКРЫТИЕ ФАЙЛА
+	file.open("R.txt", ios::app);
+
+	file << "C++ R:" << endl;
+
+	for(int i = 0; i < N2; ++i)
+	{
+		if(abs(Rnv[i]) > 1.0e-4) file << Rnv[i] << endl;
+	}
+
+	//ЗАКРЫТИЕ ФАЙЛА
+	file.close();
 
 }
